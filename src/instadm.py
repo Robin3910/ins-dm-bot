@@ -6,7 +6,7 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from random import randint, uniform
-from time import time, sleep
+from time import time, sleep, localtime
 import logging
 import sqlite3
 
@@ -28,7 +28,8 @@ class InstaDM(object):
             "name": "((//div[@aria-labelledby]/div/span//img[@data-testid='user-avatar'])[1]//..//..//..//div[2]/div[2]/div)[1]",
             "next_button": "//button/*[text()='Next']",
             "textarea": "//textarea[@placeholder]",
-            "send": "//button[text()='Send']"
+            "send": "//button[text()='Send']",
+            "button_not_now": "//button[text()='Not Now']"
         }
 
         # Selenium config
@@ -40,16 +41,16 @@ class InstaDM(object):
         if headless:
             options.add_argument("--headless")
 
-        mobile_emulation = {
-            "userAgent": 'Mozilla/5.0 (Linux; Android 10.0; iPhone Xs Max Build/IML74K) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/91.0.4472.77 Mobile Safari/535.19'
-        }
-        options.add_experimental_option("mobileEmulation", mobile_emulation)
+        # mobile_emulation = {
+        #     "userAgent": 'Mozilla/5.0 (Linux; Android 10.0; iPhone Xs Max Build/IML74K) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/91.0.4472.77 Mobile Safari/535.19'
+        # }
+        # options.add_experimental_option("mobileEmulation", mobile_emulation)
         options.add_argument("--log-level=3")
 
         self.driver = webdriver.Chrome(
             executable_path=CM().install(), options=options)
         self.driver.set_window_position(0, 0)
-        self.driver.set_window_size(414, 936)
+        self.driver.set_window_size(2000, 936)
 
         # Instapy init DB
         self.instapy_workspace = instapy_workspace
@@ -78,7 +79,35 @@ class InstaDM(object):
                 """)
 
         try:
-            self.login(username, password)
+            self.driver.get('https://instagram.com/?hl=en')
+
+            # 代码修改处
+            cookies = self.extract_cookies(
+                cookie="")
+            # 代码结束
+
+            year = localtime().tm_year + 1
+
+            for key in cookies:
+                cookie_dict = {
+                    'domain': 'instagram.com',
+                    'name': key,
+                    'value': cookies[key],
+                    "expires": 'Sat, 26 Aug ' + str(year) + ' 10:34:25 GMT',
+                    'path': '/',
+                    'httpOnly': False,
+                    'HostOnly': False,
+                    'Secure': True
+                }
+                self.driver.add_cookie(cookie_dict)
+
+            self.driver.refresh()
+
+            self.__random_sleep__(3, 5)
+            if self.__wait_for_element__(self.selectors['button_not_now'], "xpath"):
+                self.__get_element__(
+                    self.selectors['button_not_now'], "xpath").click()
+                self.__random_sleep__()
         except Exception as e:
             logging.error(e)
             print(str(e))
@@ -132,14 +161,15 @@ class InstaDM(object):
                 self.selectors['next_button'], "xpath").click()
             self.__random_sleep__()
 
-        if self.__wait_for_element__(self.selectors['textarea'], "xpath"):
-            self.__type_slow__(self.selectors['textarea'], "xpath", message)
-            self.__random_sleep__()
+        for msg in message:
+            if self.__wait_for_element__(self.selectors['textarea'], "xpath"):
+                self.__type_slow__(self.selectors['textarea'], "xpath", msg)
+                self.__random_sleep__()
 
-        if self.__wait_for_element__(self.selectors['send'], "xpath"):
-            self.__get_element__(self.selectors['send'], "xpath").click()
-            self.__random_sleep__(3, 5)
-            print('Message sent successfully')
+            if self.__wait_for_element__(self.selectors['send'], "xpath"):
+                self.__get_element__(self.selectors['send'], "xpath").click()
+                self.__random_sleep__(3, 5)
+                print('Message sent successfully')
 
     def sendMessage(self, user, message, greeting=None):
         logging.info(f'Send message to {user}')
@@ -163,13 +193,13 @@ class InstaDM(object):
                 self.__random_sleep__()
 
                 if greeting != None:
-                    self.typeMessage(user, greeting + message)
+                    self.typeMessage(user, message)
                 else:
                     self.typeMessage(user, message)
 
                 if self.conn is not None:
                     self.cursor.execute(
-                        'INSERT INTO message (username, message) VALUES(?, ?)', (user, message))
+                        'INSERT INTO message (username, message) VALUES(?, ?)', (user, message[0]))
                     self.conn.commit()
                 self.__random_sleep__(5, 10)
 
@@ -233,8 +263,8 @@ class InstaDM(object):
 
         # Definitely a better way to do this:
         actions = ActionChains(self.driver)
-        actions.send_keys(Keys.TAB*2 + Keys.ENTER).perform()
-        actions.send_keys(Keys.TAB*4 + Keys.ENTER).perform()
+        actions.send_keys(Keys.TAB * 2 + Keys.ENTER).perform()
+        actions.send_keys(Keys.TAB * 4 + Keys.ENTER).perform()
 
         if self.__wait_for_element__(f"//a[@href='/direct/t/{chatID}']", 'xpath', 10):
             self.__get_element__(
@@ -335,9 +365,10 @@ class InstaDM(object):
             element = self.__get_element__(element_tag, locator)
             actions = ActionChains(self.driver)
             actions.click(element).perform()
+            # element.send_keys(input_text)
             for s in input_text:
                 element.send_keys(s)
-                sleep(uniform(0.005, 0.02))
+                # sleep(uniform(0.005, 0.02))
 
         except Exception as e:
             logging.error(e)
@@ -355,3 +386,8 @@ class InstaDM(object):
     def teardown(self):
         self.driver.close()
         self.driver.quit()
+
+    def extract_cookies(self, cookie=""):
+        """从浏览器或者request headers中拿到cookie字符串，提取为字典格式的cookies"""
+        cookies = {i.split("=")[0]: i.split("=")[1] for i in cookie.split("; ")}
+        return cookies
