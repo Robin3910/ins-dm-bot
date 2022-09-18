@@ -2,7 +2,7 @@
 
 使用步骤：
 1、安装python3
-2、在工程目录中pip install -r requirement.txt
+2、在工程目录中pip install -r requirements.txt。程序运行报错时执行下这个初始化代码
 3、在要进行群发消息的账号内，复制cookie信息，放到代码中
 4、在/infos/usernames.txt中设置好要发送的账户名
 5、在run.py中设置好message消息内容。message是一个数组，消息过长的话需要分成多段消息进行发送。
