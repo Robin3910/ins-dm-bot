@@ -11,9 +11,13 @@ import logging
 import sqlite3
 
 DEFAULT_IMPLICIT_WAIT = 1
+DEFAULT_RETRY_TIMES = 2
+
+skipUserList = []
 
 curUser = ''
 curMessage = ''
+
 
 class InstaDM(object):
 
@@ -54,6 +58,11 @@ class InstaDM(object):
         self.driver.set_window_position(0, 0)
         self.driver.set_window_size(2000, 936)
 
+        # open skipList file
+        self.skipList = 'skipList_' + str(time()) + '.txt'
+        # with open(self.skipList, 'w', encoding='utf-8')as file:
+        #     file.write('')
+
         # Instapy init DB
         self.instapy_workspace = instapy_workspace
         self.conn = None
@@ -85,7 +94,7 @@ class InstaDM(object):
 
             # 代码修改处
             cookies = self.extract_cookies(
-                cookie="")
+                cookie="mid=YdFiUgAEAAH7wYiGbVoNiFLa3VfX; ig_did=C57FDF5E-5A78-4041-9A34-9ED2A418ED6D; ig_nrcb=1; csrftoken=PDnwj8HKmDij99qzPT2cXBurzwclC3QK; ds_user_id=50816455717; datr=9C_SYhyN9DxKspIbpsi0xkBZ; fbm_124024574287414=base_domain=.instagram.com; fbsr_124024574287414=DY1h0x1WhcectQ4nLJmA8d7b6GhJiSfO_LBUYhErv3g.eyJ1c2VyX2lkIjoiMTAwMDUxMjI1NDEzNjkzIiwiY29kZSI6IkFRQ0Nia2NJOWRFRl9pZGlTUXpCanBuSGdLMThfa3NGTkVwSDNRbjF6UnNZTUMwOHRESmhkeFk3YnlPQ0JSdmR4di0xcXJzMTc5SWRTa245aV80cDlhMjZHN3cyN0hMRXpKQnU3Rk1ocFhULVpsWDBncW1WeVhlZmNWRFphSWxHQjB6R0RzaXdsbmthSGhwdnk2aVFNNm9KSG5rRjNXeW1adEFaQXFZazRwTWFXTDZ3eXA3MTFXZUNuaktTM2c5eDFxdnQya3k1Tnpfam1JR2ZEb3J3YkE5ak5tU0lwMjJTLXpNak5LOUx5cXNETjlMMkZhd3J1a21KbFAydFg3RGdZemdrT25rX291My1LdDRrb05Oc0psc0FZUmgwa0FVbWg3RXNfamJ0Zm92ajZ4dVM1N3dOQWJveFlqeU1ia3dwd0hlaU9vTkZEZGcyYUVQUC0tRko0ZkFSIiwib2F1dGhfdG9rZW4iOiJFQUFCd3pMaXhuallCQU5wWXFZTEhhbWx0dVFTdHBuNlJ2cFJucGRlakpzMGZzOVpCeEtKc3h1alFoMWZ1VFYxYTNuaEtiUWtNa3ZTblVaQ2VaQ1pBc1lsclpBeVVGUUp2ckxwdmtlNkR6dXlNT1RHUEM0bHptSnNhWkFUWThYQ29aQVVQTUd0R2NPc3ZoaW1aQ1pDejFPMGo4TlVKckNXcnJmTXVIRGhaQmFBWkFSblRuWkNTZWFUY0NSN3BlbDl5VENUNkU4VVpEIiwiYWxnb3JpdGhtIjoiSE1BQy1TSEEyNTYiLCJpc3N1ZWRfYXQiOjE2NTc5NDY5MTd9; fbsr_124024574287414=9GuJCWkG3YCkE5P45zbbor4DDSBLomhQUpMpaXlj7Ow.eyJ1c2VyX2lkIjoiMTAwMDUxMjI1NDEzNjkzIiwiY29kZSI6IkFRQ3VGbmkwTEZveWRKOWp1QWNsbHpKOUFIYnJKQXpIRllJb3ZabEt4Z1czZ21hY19HTjk1amVnTG5qRG1YaGdDSVUwX0NscGJwTlVKWUYxMnNpeDNKa3ZKTmNaUDlubG9FWWRibFRVR2tTM3RmQTJ1emoxOXYtU2pQcjRTdFUyRmVSUWxWWnpyX3daLTh2NjdYZmQzSnpxSldLc2NMWTF2LXI4S0s2TjFlaE9DdklNMDBJcE83M2tmV2xyZzN3ZDVQNlVUZVhOZmMxM1BxYTBlRlFDREwxRkZyQm5rNW5jOHEzbE5keks3NElnV3pDX0xxaTEyWDFpMS1uRXJ5WmFXTTBEZXhfS25jY2V2bWNpcmw4MnQzNmVzVDFVdXUtV0h3SzlCQ3pDcmZYVWIwTkplUzU4YkJCcUI4ckdFZFBUUnFEc2xlV1RTQ2dqTTNwRThxeUtGTDktIiwib2F1dGhfdG9rZW4iOiJFQUFCd3pMaXhuallCQUE3ZURLZGRob2NudmkxOHg1M1pDaVAyb1pBTnl6cjIyQjRpaHdWY2FuTDhFT2RJeHNEbVRsdnFDYVpDYjdSSXJDclpBWFBmZHFIMlhOMENnWkNvSDlCaEM1YWlBSW1zaDB6cjdTY1VVS0hMWkJlWW50WkJtZlpBdFE2MjJXV2Z4ZXdJektpWkNxZFRDUkVKSGx4Z1FaQWNXU1NMT1d1RWpPRzlDbmpPUVJUZ093dmNzNW1xWDdRTEVaRCIsImFsZ29yaXRobSI6IkhNQUMtU0hBMjU2IiwiaXNzdWVkX2F0IjoxNjU3OTQ5NjYxfQ; shbid=2563\05450816455717\0541696320597:01f72ccbc0ddbb37a8e3ba140958c32547afdffbb9f854fefffd88d020f9a0a8493efab4; shbts=1664784597\05450816455717\0541696320597:01f731b820a073ceac4b069e71e1f5e0a3a4ed6bad68d7066a8b61576bc7f87b0516de30; sessionid=50816455717%3APPO4oyJgHIwZNI%3A8%3AAYe30CEyAtc4DYLWexriQgQPO1NLtk_lFPJNO0oIGg; dpr=2; rur=NCG\05450816455717\0541696320688:01f7b496753081ba146d5c6bf8ff8f4669bca5e0e7f4dbf4e05c22aecb09859fd5f72902")
             # 代码结束
 
             year = localtime().tm_year + 1
@@ -173,7 +182,7 @@ class InstaDM(object):
                 self.__random_sleep__(3, 5)
                 print('Message sent successfully')
 
-    def sendMessage(self, user, message, greeting=None):
+    def sendMessage(self, user, message, greeting=None, retry=DEFAULT_RETRY_TIMES):
         curUser = user
         curMessage = message
         logging.info(f'Send message to {user}')
@@ -212,7 +221,14 @@ class InstaDM(object):
             # In case user has changed his username or has a private account
             else:
                 print(f'User {user} not found! Skipping. try to resend.')
-                self.sendMessage(user, message)
+                if retry > 0:
+                    retry -= 1
+                    if retry == 0:
+                        with open(self.skipList, 'a+', encoding='utf-8')as file:
+                            file.write(user + '\n')
+                        return False
+                    else:
+                        self.sendMessage(user, message, None, retry)
                 return False
 
         except Exception as e:
