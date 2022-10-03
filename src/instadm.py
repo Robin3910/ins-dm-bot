@@ -12,6 +12,8 @@ import sqlite3
 
 DEFAULT_IMPLICIT_WAIT = 1
 
+curUser = ''
+curMessage = ''
 
 class InstaDM(object):
 
@@ -172,6 +174,8 @@ class InstaDM(object):
                 print('Message sent successfully')
 
     def sendMessage(self, user, message, greeting=None):
+        curUser = user
+        curMessage = message
         logging.info(f'Send message to {user}')
         print(f'Send message to {user}')
         self.driver.get('https://www.instagram.com/direct/new/?hl=en')
@@ -207,7 +211,8 @@ class InstaDM(object):
 
             # In case user has changed his username or has a private account
             else:
-                print(f'User {user} not found! Skipping.')
+                print(f'User {user} not found! Skipping. try to resend.')
+                self.sendMessage(user, message)
                 return False
 
         except Exception as e:
@@ -354,7 +359,8 @@ class InstaDM(object):
             sleep(1 - (time() - initTime))
         else:
             print(
-                f"Timed out. Element not found with {locator} : {element_tag}")
+                f"Timed out. Element not found with {locator} : {element_tag}. try to resend to {curUser}")
+            self.sendMessage(curUser, curMessage)
         self.driver.implicitly_wait(DEFAULT_IMPLICIT_WAIT)
         return result
 
