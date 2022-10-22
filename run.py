@@ -7,6 +7,9 @@ from src.instadm import InstaDM
 f = open('infos/accounts.json', )
 accounts = json.load(f)
 
+f = open('infos/config.json', )
+botConfig = json.load(f)
+
 with open('infos/usernames.txt', 'r') as f:
     usernames = [line.strip() for line in f]
 
@@ -16,6 +19,8 @@ message = ["Beiens(a 10-year brand aiming at learning toys) is looking for brand
            "Learn more: https://bit.ly/3C2ix8i",
            "If interested Please DM to beiens_official or email to beiensmarketing@gmail.com"]
 
+sendInterval = botConfig["send_interval"]
+print("setting send interval" + str(sendInterval))
 
 while True:
     if not usernames:
@@ -37,5 +42,5 @@ while True:
             # Send message
             insta.sendMessage(
                 user=username, message=message)
-            print("sleep 5-15 min")
-            insta.__random_sleep__(300, 900)
+            print(f'sleep {botConfig["send_interval"]} s')
+            insta.__random_sleep__(sendInterval, sendInterval)
